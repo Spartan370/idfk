@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1K - Advanced AI Chat</title>
+    <!--
+    Tailwind CSS is loaded from a CDN for easy styling.
+    Lucide icons are also loaded for a modern, vector-based icon set.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        /* ========================================================= */
+        /* === Global Styles & Theme Handling === */
+        /* ========================================================= */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0d0d;
+            color: #f5f5f5;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        body.light {
+            background-color: #f5f5f5;
+            color: #0d0d0d;
+        }
+
+        /*
+        Custom scrollbar styles for a more polished look.
+        These are applied to specific overflow-y containers.
+        */
+        .sidebar-menu::-webkit-scrollbar,
+        .chat-history::-webkit-scrollbar,
+        .code-output::-webkit-scrollbar,
+        .history-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-track,
+        .history-list::-webkit-scrollbar-track {
+            background: #0d0d0d;
+        }
+
+        body.light .sidebar-menu::-webkit-scrollbar-track,
+        body.light .history-list::-webkit-scrollbar-track {
+            background: #e0e0e0;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-thumb,
+        .history-list::-webkit-scrollbar-thumb {
+            background-color: #333;
+            border-radius: 4px;
+        }
+
+        body.light .sidebar-menu::-webkit-scrollbar-thumb,
+        body.light .history-list::-webkit-scrollbar-thumb {
+            background-color: #ccc;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-thumb:hover,
+        .history-list::-webkit-scrollbar-thumb:hover {
+            background-color: #555;
+        }
+
+        body.light .sidebar-menu::-webkit-scrollbar-thumb:hover,
+        body.light .history-list::-webkit-scrollbar-thumb:hover {
+            background-color: #999;
+        }
+
+        .chat-history::-webkit-scrollbar-track,
+        .code-output::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        body.light .chat-history::-webkit-scrollbar-track,
+        body.light .code-output::-webkit-scrollbar-track {
+            background: #f0f0f0;
+        }
+
+        .chat-history::-webkit-scrollbar-thumb,
+        .code-output::-webkit-scrollbar-thumb {
+            background-color: #444;
+            border-radius: 4px;
+        }
+
+        body.light .chat-history::-webkit-scrollbar-thumb,
+        body.light .code-output::-webkit-scrollbar-thumb {
+            background-color: #ccc;
+        }
+
+        .chat-history::-webkit-scrollbar-thumb:hover,
+        .code-output::-webkit-scrollbar-thumb:hover {
+            background-color: #666;
+        }
+
+        body.light .chat-history::-webkit-scrollbar-thumb:hover,
+        body.light .code-output::-webkit-scrollbar-thumb:hover {
+            background-color: #999;
+        }
+
+        /* ========================================================= */
+        /* === Modal and UI Component Animations === */
+        /* ========================================================= */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* Initially hidden */
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .modal-content {
+            background-color: #1a1a1a;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 90%;
+            width: 500px;
+            position: relative;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        body.light .modal-content {
+            background-color: #fff;
+            color: #0d0d0d;
+        }
+
+        .modal.is-active .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .modal-content.lg {
+            width: 800px;
+            max-width: 95%;
+        }
+
+        /* Chat bubble styles for user and model messages */
+        .user-message {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+            max-width: 80%;
+            margin-left: auto;
+            animation: fadeInRight 0.3s ease-in-out;
+        }
+
+        .model-message {
+            background-color: #374151;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+            max-width: 80%;
+            animation: fadeInLeft 0.3s ease-in-out;
+        }
+
+        /* Keyframe animations for message bubbles */
+        @keyframes fadeInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Main title pulse animation */
+        @keyframes pulse-gradient {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .animate-pulse-gradient {
+            background-size: 200% 200%;
+            animation: pulse-gradient 5s ease infinite;
+        }
+
+        /*
+        Code highlighting styles using a simple theme.
+        This is a basic implementation for the `code-output` element.
+        */
+        #code-output {
+            background-color: #2d2d2d;
+            color: #f8f8f2;
+            padding: 1.5rem;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border-radius: 1rem;
+            border: 1px solid #444;
+        }
+
+    </style>
+    <!--
+    Firebase is initialized here with the global variables provided by the environment.
+    These variables are crucial for the app to connect to the Firebase backend.
+    -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables are defined to be used throughout the script.
+        window.firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        window.app = initializeApp(window.firebaseConfig);
+        window.auth = getAuth(window.app);
+        window.db = getFirestore(window.app);
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    </script>
+</head>
+<body class="flex h-screen bg-gray-900 transition-colors duration-500">
+
+    <!-- ========================================================= -->
+    <!-- === Sidebar Navigation === -->
+    <!-- ========================================================= -->
+    <aside class="w-20 fixed top-0 left-0 h-full bg-gray-900 flex flex-col items-center py-6 shadow-2xl z-20 transition-colors duration-500">
+        <!-- Logo/Brand Icon -->
+        <div class="flex-shrink-0 mb-8">
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 11h-2"/><path d="M9 11h-2"/></svg>
+        </div>
+        <!-- Main Navigation Links -->
+        <nav class="flex-grow flex flex-col space-y-6 sidebar-menu overflow-y-auto">
+            <a href="#" class="p-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors duration-200" onclick="showView('home')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </a>
+            <a href="#" class="p-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors duration-200" onclick="showView('chat-history-sidebar')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-history"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.79 2.88L3 12zm0 0h2"/><path d="M12 7v5l4 2"/></svg>
+            </a>
+            <a href="#" class="p-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors duration-200" onclick="openModal('image-gen')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image"><path d="M5 15h2l4-4 3 3 6-6"/><path d="M4 11V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><rect width="8" height="8" x="2" y="14" rx="2"/></svg>
+            </a>
+            <a href="#" class="p-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors duration-200" onclick="openModal('code-gen')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-code"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </a>
+        </nav>
+        <!-- Bottom Settings and Profile Links -->
+        <div class="flex-shrink-0 mt-8 space-y-6">
+            <a href="#" class="p-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors duration-200" onclick="openModal('settings')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.39a2 2 0 0 0 .73 2.73l.15.08a2 2 0 0 1 1 1.73v.53a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.73v-.53a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </a>
+            <a href="#" class="p-3 text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors duration-200" onclick="openModal('profile')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </a>
+        </div>
+    </aside>
+
+    <!-- ========================================================= -->
+    <!-- === Main Content Area and Dynamic Views === -->
+    <!-- ========================================================= -->
+    <main class="flex-1 ml-20 flex flex-col justify-center items-center p-6 transition-all duration-500">
+        <div id="page-container" class="w-full h-full flex flex-col items-center justify-center relative">
+
+            <!-- Home View -->
+            <div id="home-view" class="w-full flex-grow flex flex-col items-center justify-center p-6">
+                <h1 class="text-5xl md:text-7xl font-extrabold mb-12 text-center text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 animate-pulse-gradient">
+                    1K
+                </h1>
+                <p class="text-xl text-gray-400 mb-10 text-center">Your AI companion for writing, coding, and creating.</p>
+                <div class="w-full flex flex-col items-center max-w-2xl">
+                    <div class="relative w-full bg-gray-800 rounded-3xl p-4 shadow-xl flex items-center mb-8 transition-colors duration-500">
+                        <input type="text" id="mainInput" placeholder="Ask me anything" class="flex-grow bg-transparent text-lg text-gray-200 placeholder-gray-500 outline-none pr-10">
+                        <div class="absolute right-4 flex items-center space-x-2">
+                            <button class="text-gray-400 hover:text-blue-400 transition-colors duration-200" onclick="openModal('text-chat')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap justify-center items-center gap-4">
+                        <button class="bg-gray-800 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-105" onclick="openModal('text-chat')">Write</button>
+                        <button class="bg-gray-800 hover:bg-purple-600 text-white font-medium py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-105" onclick="openModal('code-gen')">Build</button>
+                        <button class="bg-gray-800 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-105" onclick="openModal('text-chat')">Research</button>
+                        <button class="bg-gray-800 hover:bg-red-600 text-white font-medium py-3 px-6 rounded-full shadow-lg transform transition-all duration-300 hover:scale-105" onclick="openModal('image-gen')">Create Image</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat History View -->
+            <div id="chat-history-sidebar-view" class="w-full flex-grow hidden flex-col items-center p-6">
+                <h2 class="text-4xl font-bold mb-8">Chat History</h2>
+                <div class="w-full max-w-4xl h-full bg-gray-800 rounded-3xl shadow-xl flex flex-col p-6">
+                    <ul id="history-list" class="history-list flex-grow overflow-y-auto space-y-4">
+                        <!-- Chat history items will be dynamically inserted here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- === Modals === -->
+    <!-- ========================================================= -->
+    
+    <!-- New Chat Confirmation Modal -->
+    <div id="new-chat" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Start a New Chat</h2>
+                <button class="text-gray-500 hover:text-gray-300" onclick="closeModal('new-chat')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <p class="text-gray-400 mb-6">This will start a fresh conversation and clear the current history.</p>
+            <div class="flex justify-center">
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full transition-colors duration-200" onclick="startNewChat()">Start New Chat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Generation Modal -->
+    <div id="image-gen" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Image Generation</h2>
+                <button class="text-gray-500 hover:text-gray-300" onclick="closeModal('image-gen')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <p class="text-gray-400 mb-6">Generate unique images from your text prompts. Be as descriptive as you can!</p>
+            <input type="text" id="image-prompt-input" placeholder="e.g., 'A vibrant watercolor painting of a lighthouse on a rocky shore'" class="w-full mt-4 p-4 bg-gray-700 rounded-xl text-gray-200 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200">
+            <div id="image-output" class="mt-6 flex justify-center items-center h-64 bg-gray-700 rounded-xl overflow-hidden hidden">
+                <span id="image-loading-spinner" class="lucide lucide-loader-2 animate-spin text-4xl text-gray-400 hidden"></span>
+            </div>
+            <div class="mt-6 flex justify-end gap-4">
+                <button class="bg-gray-600 hover:bg-gray-500 text-white font-medium px-6 py-3 rounded-full" onclick="closeModal('image-gen')">Cancel</button>
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-full" onclick="handleImageGeneration()">Generate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text Chat Modal -->
+    <div id="text-chat" class="modal">
+        <div class="modal-content lg flex flex-col h-[700px]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Text-based Chat</h2>
+                <button class="text-gray-500 hover:text-gray-300" onclick="closeModal('text-chat')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div id="chat-history" class="chat-history flex-grow p-4 bg-gray-800 rounded-xl overflow-y-auto mb-4 space-y-4">
+            </div>
+            <div class="flex items-center space-x-2">
+                <textarea id="chat-input" placeholder="Type your message here..." class="flex-grow p-3 bg-gray-700 rounded-xl text-gray-200 placeholder-gray-400 outline-none resize-none"></textarea>
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-full" onclick="handleTextChat()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizonal"><path d="m3 3 3 9-3 9 19-9Z"/><path d="M6 12h16"/></svg>
+                </button>
+            </div>
+            <div id="text-chat-loading" class="flex items-center justify-start mt-2 hidden">
+                <span class="lucide lucide-loader-2 animate-spin text-xl text-gray-400 mr-2"></span>
+                <span class="text-gray-400">Thinking...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Generation Modal -->
+    <div id="code-gen" class="modal">
+        <div class="modal-content lg flex flex-col h-[700px]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Code Generation</h2>
+                <button class="text-gray-500 hover:text-gray-300" onclick="closeModal('code-gen')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <p class="text-gray-400 mb-6">Describe the code you need, and I'll generate it for you in your preferred language.</p>
+            <input type="text" id="code-prompt-input" placeholder="e.g., 'A Python function to sort a list'" class="w-full mt-4 p-4 bg-gray-700 rounded-xl text-gray-200 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-200">
+            <div id="code-output-container" class="relative mt-4 flex-grow bg-gray-800 rounded-xl overflow-y-auto hidden">
+                <pre id="code-output" class="p-4 text-sm"></pre>
+                <div id="code-gen-loading" class="absolute inset-0 flex justify-center items-center bg-gray-800 hidden">
+                    <span class="lucide lucide-loader-2 animate-spin text-4xl text-gray-400"></span>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-4">
+                <button class="bg-gray-600 hover:bg-gray-500 text-white font-medium px-6 py-3 rounded-full" onclick="closeModal('code-gen')">Cancel</button>
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-full" onclick="handleCodeGeneration()">Generate Code</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Settings</h2>
+                <button class="text-gray-500 hover:text-gray-300" onclick="closeModal('settings')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <p class="text-gray-400 mb-6">Configure your preferences here.</p>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-lg font-medium">Theme</span>
+                    <select id="theme-select" class="bg-gray-700 text-white px-4 py-2 rounded-full">
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                    </select>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-lg font-medium">Font Size</span>
+                    <select id="font-size-select" class="bg-gray-700 text-white px-4 py-2 rounded-full">
+                        <option value="16px">Small</option>
+                        <option value="18px">Medium</option>
+                        <option value="20px">Large</option>
+                    </select>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-lg font-medium">Auto-save Chat</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="auto-save-toggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-4">
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-full" onclick="saveSettings()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div id="profile" class="modal">
+        <div class="modal-content flex flex-col items-center">
+            <div class="flex justify-end w-full mb-4">
+                <button class="text-gray-500 hover:text-gray-300" onclick="closeModal('profile')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-circle"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
+            <h2 class="text-3xl font-bold mt-4">User Profile</h2>
+            <p class="text-gray-400 mb-6">Hello, there!</p>
+            <div class="w-full space-y-4">
+                <div class="p-4 bg-gray-700 rounded-lg flex justify-between items-center">
+                    <span class="text-lg">User ID</span>
+                    <span id="profile-user-id" class="text-gray-300 break-all text-right">Loading...</span>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-center w-full">
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-full" onclick="closeModal('profile')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal (replaces alert()) -->
+    <div id="alert-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="alert-title" class="text-2xl font-bold mb-4"></h2>
+            <p id="alert-message" class="text-gray-400 mb-6"></p>
+            <div class="flex justify-center">
+                <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full" onclick="closeModal('alert-modal')">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- === Main JavaScript Logic === -->
+    <!-- ========================================================= -->
+    <script type="module">
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // State object to hold all application data, making it easier to manage.
+        const state = {
+            chatHistory: [],
+            currentChatId: null, // New: Track the current chat session
+            chatSessions: [], // New: Store a list of chat sessions
+            settings: {
+                theme: 'dark',
+                fontSize: '18px',
+                autoSave: true,
+            },
+            userId: null,
+            isAuthReady: false,
+        };
+        
+        /*
+        The API key is embedded here as requested. This is a placeholder
+        and would need to be replaced with a real key for live use.
+        */
+        const PLACEHOLDER_API_KEY = "sk-proj-xdq7I2y6qv03Lrk8VJMiT3BlbkFJkswh4k4hm6oVw9VKV3As";
+
+        /*
+        makeApiCall is a utility function to handle API requests.
+        It includes exponential backoff for retries in case of rate limiting.
+        */
+        window.makeApiCall = async function(url, payload) {
+            let delay = 1000;
+            const maxRetries = 5;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const finalUrl = `${url}${PLACEHOLDER_API_KEY}`;
+                    const response = await fetch(finalUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    if (response.status === 429) {
+                        // Rate limit hit, wait and retry.
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                    } else {
+                        const errorData = await response.json();
+                        throw new Error(`API call failed with status ${response.status}: ${JSON.stringify(errorData)}`);
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed.`, error);
+                    if (i === maxRetries - 1) {
+                        throw error; // Rethrow on final failure.
+                    }
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+        
+        /*
+        loadSettings fetches user settings from Firestore.
+        It applies the settings to the UI if they exist.
+        */
+        window.loadSettings = async function() {
+            if (!state.isAuthReady) return;
+            const settingsDocRef = doc(window.db, `artifacts/${window.appId}/users/${state.userId}/settings/app-settings`);
+            try {
+                const docSnap = await getDoc(settingsDocRef);
+                if (docSnap.exists()) {
+                    state.settings = { ...state.settings, ...docSnap.data() };
+                    document.getElementById('theme-select').value = state.settings.theme;
+                    document.getElementById('font-size-select').value = state.settings.fontSize;
+                    document.getElementById('auto-save-toggle').checked = state.settings.autoSave;
+                    window.applySettings();
+                }
+            } catch (error) {
+                console.error("Error loading settings:", error);
+            }
+        }
+
+        /*
+        saveSettings saves the current settings to Firestore.
+        It uses a document with the user's ID for private storage.
+        */
+        window.saveSettings = async function() {
+            if (!state.isAuthReady) {
+                window.showAlert("Error", "Authentication is not ready. Please try again.");
+                return;
+            }
+            state.settings.theme = document.getElementById('theme-select').value;
+            state.settings.fontSize = document.getElementById('font-size-select').value;
+            state.settings.autoSave = document.getElementById('auto-save-toggle').checked;
+            
+            const settingsDocRef = doc(window.db, `artifacts/${window.appId}/users/${state.userId}/settings/app-settings`);
+            try {
+                await setDoc(settingsDocRef, state.settings, { merge: true });
+                window.showAlert("Settings Saved", "Your preferences have been saved.");
+                window.applySettings();
+            } catch (error) {
+                console.error("Error saving settings:", error);
+                window.showAlert("Save Error", "Could not save settings. Please try again.");
+            }
+        }
+
+        /*
+        applySettings changes the theme and font size of the application.
+        */
+        window.applySettings = function() {
+            document.body.style.fontSize = state.settings.fontSize;
+            document.body.classList.toggle('dark', state.settings.theme === 'dark');
+            document.body.classList.toggle('light', state.settings.theme === 'light');
+        }
+
+        /*
+        loadChatSessions loads all saved chat sessions from Firestore for the sidebar.
+        It uses onSnapshot to listen for real-time updates.
+        */
+        window.loadChatSessions = function() {
+            if (!state.isAuthReady) return;
+            const q = query(collection(window.db, `artifacts/${window.appId}/users/${state.userId}/chatSessions`));
+            onSnapshot(q, (querySnapshot) => {
+                const sessions = [];
+                querySnapshot.forEach((doc) => {
+                    sessions.push({ id: doc.id, ...doc.data() });
+                });
+                state.chatSessions = sessions;
+                window.renderChatHistorySidebar();
+            });
+        };
+
+        /*
+        loadChatHistory loads the messages for a specific chat session.
+        If no ID is provided, it creates a new session.
+        */
+        window.loadChatHistory = async function(chatId) {
+            let currentChatId = chatId;
+            if (!currentChatId) {
+                const newChatRef = await addDoc(collection(window.db, `artifacts/${window.appId}/users/${state.userId}/chatSessions`), {
+                    title: "New Chat",
+                    createdAt: new Date(),
+                    history: []
+                });
+                currentChatId = newChatRef.id;
+            }
+            
+            state.currentChatId = currentChatId;
+            const chatDocRef = doc(window.db, `artifacts/${window.appId}/users/${state.userId}/chatSessions/${state.currentChatId}`);
+            onSnapshot(chatDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    state.chatHistory = docSnap.data().history || [];
+                    window.renderChatHistory();
+                    // Update the title if it's still "New Chat" after the first message
+                    if (docSnap.data().title === "New Chat" && state.chatHistory.length > 0) {
+                        const firstMessage = state.chatHistory[0].text;
+                        const newTitle = firstMessage.substring(0, 30) + "...";
+                        updateDoc(chatDocRef, { title: newTitle });
+                    }
+                }
+            });
+        }
+        
+        /*
+        saveChatHistory saves the current chat session's messages to Firestore.
+        */
+        window.saveChatHistory = async function() {
+            if (!state.isAuthReady || !state.settings.autoSave || !state.currentChatId) return;
+            const chatDocRef = doc(window.db, `artifacts/${window.appId}/users/${state.userId}/chatSessions/${state.currentChatId}`);
+            try {
+                await updateDoc(chatDocRef, { history: state.chatHistory });
+            } catch (error) {
+                console.error("Error saving chat history:", error);
+            }
+        }
+
+        /*
+        showAlert creates a custom modal alert. This is used instead of window.alert().
+        */
+        window.showAlert = function(title, message) {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-message').innerText = message;
+            window.openModal('alert-modal');
+        }
+
+        /*
+        showLoading and hideLoading manage a spinner icon for API calls.
+        */
+        window.showLoading = function(elementId) {
+            document.getElementById(elementId).classList.remove('hidden');
+        }
+        window.hideLoading = function(elementId) {
+            document.getElementById(elementId).classList.add('hidden');
+        }
+
+        /*
+        renderChatMessage appends a new message to the chat modal.
+        */
+        window.renderChatMessage = function(role, text) {
+            const chatHistoryElement = document.getElementById('chat-history');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add(role === 'user' ? 'user-message' : 'model-message', 'mb-4');
+            messageDiv.innerText = text;
+            chatHistoryElement.appendChild(messageDiv);
+            chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+        }
+
+        /*
+        renderChatHistory clears and re-renders the entire chat history.
+        */
+        window.renderChatHistory = function() {
+            const chatHistoryElement = document.getElementById('chat-history');
+            chatHistoryElement.innerHTML = '';
+            state.chatHistory.forEach(message => {
+                window.renderChatMessage(message.role, message.text);
+            });
+        }
+
+        /*
+        renderChatHistorySidebar populates the persistent history sidebar.
+        */
+        window.renderChatHistorySidebar = function() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            state.chatSessions.forEach(session => {
+                const li = document.createElement('li');
+                li.classList.add('p-4', 'bg-gray-700', 'hover:bg-gray-600', 'rounded-xl', 'cursor-pointer', 'transition-colors', 'duration-200');
+                li.innerText = session.title;
+                li.onclick = () => {
+                    window.loadChatHistory(session.id);
+                    window.showView('home');
+                    window.openModal('text-chat');
+                };
+                historyList.appendChild(li);
+            });
+        }
+
+        /*
+        startNewChat clears the current session and creates a new one.
+        */
+        window.startNewChat = function() {
+            state.currentChatId = null;
+            state.chatHistory = [];
+            window.loadChatHistory();
+            window.closeModal('new-chat');
+            window.showAlert("New Chat Started", "Your previous conversation has been cleared.");
+        }
+
+        /*
+        showView handles switching between different main content views.
+        */
+        window.showView = function(viewId) {
+            const views = ['home-view', 'chat-history-sidebar-view'];
+            views.forEach(id => {
+                const view = document.getElementById(id);
+                if (view) {
+                    view.classList.add('hidden');
+                }
+            });
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                targetView.classList.add('flex');
+            }
+        }
+
+        /*
+        handleTextChat sends a user message to the Gemini text model and displays the response.
+        */
+        window.handleTextChat = async function() {
+            const input = document.getElementById('chat-input');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+            window.renderChatMessage('user', prompt);
+            state.chatHistory.push({ role: 'user', text: prompt });
+            input.value = '';
+            window.saveChatHistory(); // Save the user's message
+            window.showLoading('text-chat-loading');
+
+            const chatHistoryPayload = state.chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }));
+            const payload = { contents: chatHistoryPayload };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=`;
+
+            try {
+                const result = await window.makeApiCall(apiUrl, payload);
+                const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No response found.";
+                window.renderChatMessage('model', responseText);
+                state.chatHistory.push({ role: 'model', text: responseText });
+                window.saveChatHistory();
+            } catch (error) {
+                console.error("Chat API error:", error);
+                window.showAlert("Chat Error", "Failed to get a response from the chat model.");
+            } finally {
+                window.hideLoading('text-chat-loading');
+            }
+        }
+        
+        /*
+        handleCodeGeneration sends a prompt to the Gemini model to generate code.
+        */
+        window.handleCodeGeneration = async function() {
+            const prompt = document.getElementById('code-prompt-input').value.trim();
+            if (!prompt) return;
+            const outputContainer = document.getElementById('code-output-container');
+            const outputElement = document.getElementById('code-output');
+            outputContainer.classList.remove('hidden');
+            outputElement.innerText = '';
+            window.showLoading('code-gen-loading');
+            
+            const payload = {
+                contents: [{ parts: [{ text: `Generate code based on this request: ${prompt}. Only provide the code block, no extra text.` }] }],
+            };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=`;
+
+            try {
+                const result = await window.makeApiCall(apiUrl, payload);
+                const codeText = result.candidates?.[0]?.content?.parts?.[0]?.text || "No code generated.";
+                outputElement.innerText = codeText;
+            } catch (error) {
+                console.error("Code API error:", error);
+                outputElement.innerText = "Error generating code. Please try again.";
+            } finally {
+                window.hideLoading('code-gen-loading');
+            }
+        }
+
+        /*
+        handleImageGeneration sends a prompt to the Imagen model to create an image.
+        */
+        window.handleImageGeneration = async function() {
+            const prompt = document.getElementById('image-prompt-input').value.trim();
+            if (!prompt) return;
+            const outputContainer = document.getElementById('image-output');
+            outputContainer.innerHTML = '';
+            outputContainer.classList.remove('hidden');
+            window.showLoading('image-loading-spinner');
+            
+            const payload = {
+                instances: [{ prompt: prompt }],
+                parameters: { "sampleCount": 1 }
+            };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=`;
+
+            try {
+                const result = await window.makeApiCall(apiUrl, payload);
+                const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+                if (base64Data) {
+                    const img = document.createElement('img');
+                    img.src = `data:image/png;base64,${base64Data}`;
+                    img.classList.add('w-full', 'h-full', 'object-contain', 'rounded-xl');
+                    outputContainer.appendChild(img);
+                } else {
+                    outputContainer.innerHTML = `<p class="text-red-400">Error: No image data returned.</p>`;
+                }
+            } catch (error) {
+                console.error("Image API error:", error);
+                outputContainer.innerHTML = `<p class="text-red-400">Failed to generate image. Please try again.</p>`;
+            } finally {
+                window.hideLoading('image-loading-spinner');
+            }
+        }
+        
+        /*
+        openModal and closeModal manage the visibility of the modal windows.
+        They handle the CSS transitions for a smooth fade-in/out effect.
+        */
+        window.openModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'flex';
+                setTimeout(() => { modal.classList.add('is-active'); }, 10);
+                if (modalId === 'profile') {
+                    document.getElementById('profile-user-id').innerText = state.userId || 'Not Authenticated';
+                }
+            }
+        }
+        window.closeModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('is-active');
+                setTimeout(() => { modal.style.display = 'none'; }, 300);
+            }
+        }
+
+        /*
+        initFirebaseAndLoadData initializes Firebase and starts the authentication process.
+        It then loads user-specific data like settings and chat history.
+        */
+        window.initFirebaseAndLoadData = async function() {
+            try {
+                if (window.initialAuthToken) {
+                    await signInWithCustomToken(window.auth, window.initialAuthToken);
+                } else {
+                    await signInAnonymously(window.auth);
+                }
+                state.userId = window.auth.currentUser.uid;
+                state.isAuthReady = true;
+                window.loadSettings();
+                window.loadChatHistory(); // Load the default (or a new) chat
+                window.loadChatSessions(); // Load chat session titles for the sidebar
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+                window.showAlert("Authentication Error", "Could not sign in to the service. Some features may not work.");
+            }
+        }
+        
+        /*
+        window.onload is the main entry point for the application.
+        It calls initialization functions and sets up event listeners.
+        */
+        window.onload = function() {
+            window.initFirebaseAndLoadData();
+            lucide.createIcons();
+            document.getElementById('chat-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    window.handleTextChat();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
